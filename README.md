@@ -43,9 +43,9 @@ Five commands, usually run in this order:
 
 | Type in the Claude Code prompt | What it does |
 |---|---|
-| `/chainguard-adoption setup` | Asks a few questions (Datadog site, how the Agent is deployed, UI or API dashboard) and saves the answers. No secrets |
+| `/chainguard-adoption setup` | Asks a few questions (Datadog site, how the Agent is deployed, which cluster to check, UI or API dashboard) and saves the answers. No secrets |
 | `/chainguard-adoption agent-config` | The one Agent setting for your deployment (Helm, Operator, Docker or ECS), with apply and rollback commands |
-| `/chainguard-adoption verify` | Confirms the Agent is tagging containers, and shows live Chainguard counts and adoption % in Datadog |
+| `/chainguard-adoption verify` | Confirms the Agent is tagging containers in the cluster you chose (read-only, works with any cluster your kubectl can reach), and shows live Chainguard counts and adoption % in Datadog |
 | `/chainguard-adoption dashboard` | Creates the adoption dashboard, by UI import (no keys) or through the API |
 | `/chainguard-adoption local-test` | Optional. Proves the whole thing on your laptop first (Docker, or a throwaway kind cluster with Helm or the Operator). Local only, or send to Datadog to see it on the dashboard. Never touches your real clusters or changes your kubectl context |
 
@@ -53,7 +53,7 @@ Type `/chainguard-adoption` on its own to see where you are and what to do next.
 
 ## Keys
 
-Only the API dashboard route and the live numbers in `verify` need Datadog keys. They are read from `~/.config/datadog/keys.env` (chmod 600, or the path in `DD_KEYS_FILE`):
+Only three things need Datadog keys: the API dashboard route, the live numbers in `verify`, and `local-test` when you choose to send the test to Datadog (that one needs only the API key). The UI dashboard route and a local-only test need no keys. Keys are read from `~/.config/datadog/keys.env` (chmod 600, or the path in `DD_KEYS_FILE`):
 
 ```
 DD_API_KEY=<your API key>
