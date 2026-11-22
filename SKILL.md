@@ -35,13 +35,14 @@ Facts established by testing (Agent 7.84, Docker, kind with the Helm chart, kind
 
 Collect what the other commands need and save it with `${CLAUDE_SKILL_DIR}/scripts/config.sh set KEY VALUE`. Ask with the AskUserQuestion tool. Offer detected values as the first option. Never ask for API keys or secrets.
 
-1. **Detect first (read-only):** `kubectl config current-context` and `kubectl get ds -A | grep -i datadog` for existing Agent DaemonSets, and `chainctl iam organizations list -o table` for Chainguard orgs. Skip quietly whatever is unavailable.
+1. **Detect first (read-only):** `kubectl config get-contexts`, `kubectl config current-context` and `kubectl get ds -A | grep -i datadog` for clusters and existing Agent DaemonSets, and `chainctl iam organizations list -o table` for Chainguard orgs. Skip quietly whatever is unavailable.
 2. **Ask, round 1:**
    - Datadog site (`DD_SITE`): offer `datadoghq.com` (US1), `us3.datadoghq.com`, `us5.datadoghq.com`, `datadoghq.eu`, `ap1.datadoghq.com`. It matches the address they use to open Datadog.
    - How the Datadog Agent is deployed (`AGENT_DEPLOY`): `helm`, `operator`, `docker` or `ecs`, or `none` if not deployed yet.
    - Dashboard route: UI import (no keys) or API (needs an API key and application key). Do not store it, just use it for the plan.
    - Chainguard organization (`CG_ORG`), optional. Offer the detected orgs. If they pull through a mirror (Artifactory, Nexus, Harbor), also save the path that replaces `cgr.dev/<org>` as `CG_REGISTRY`. Only used to troubleshoot a specific image later.
 3. **Ask, round 2** (skip what does not apply):
+   - Which cluster to check (`KUBE_CONTEXT`), for Kubernetes. Offer the current context first, then the other contexts. Saving it means `verify` always checks that cluster, even if their current context changes later. Leave it empty to always use whatever context is current.
    - Agent namespace and DaemonSet (`AGENT_NAMESPACE`, `AGENT_DAEMONSET`) for Kubernetes. Offer what was detected. Defaults: Helm `datadog`/`datadog` (DaemonSet = release name), Operator `datadog`/`datadog-agent` (DaemonSet = `<DatadogAgent name>-agent`).
    - The `env` tag value to scope numbers to (`DD_ENV`), for example `prod`. Optional.
    - Datadog organization name (`DD_ORG_NAME`), optional. Used to warn if API keys belong to a different org.
@@ -81,7 +82,7 @@ If `AGENT_DEPLOY` is `none`, point them to Datadog's Agent install docs for thei
 
 Two checks. Run whichever applies and report both in plain language.
 
-1. **The Agent** (Kubernetes deployments): `${CLAUDE_SKILL_DIR}/scripts/verify-agent.sh` (namespace and DaemonSet from the config, or pass them). The mapping must include `dev.chainguard.image.title` (Helm prints it as a JSON string, the Operator as key-value lines), and `cg_image:<name>` tags should appear for Chainguard containers on that node. If the DaemonSet is not found, the script lists the Datadog DaemonSets it can see. Offer to save the right one with `config.sh set`.
+1. **The Agent** (Kubernetes deployments): `${CLAUDE_SKILL_DIR}/scripts/verify-agent.sh` (namespace, DaemonSet and context from the config, or pass them as arguments). It works with any cluster the user's kubectl can reach (EKS, AKS, GKE, OpenShift, on-prem) and only reads. It targets `KUBE_CONTEXT` with `--context` and never changes the user's current context. It needs permission to get DaemonSets and pods and to exec into pods in the Agent namespace. If exec is forbidden, say so plainly and fall back to the Datadog numbers in check 2. On EKS Fargate the Agent runs as a sidecar, not a DaemonSet, so skip this check there. The mapping must include `dev.chainguard.image.title` (Helm prints it as a JSON string, the Operator as key-value lines), and `cg_image:<name>` tags should appear for Chainguard containers on that node. If the DaemonSet is not found, the script lists the Datadog DaemonSets it can see. Offer to save the right one with `config.sh set`.
 2. **The numbers in Datadog** (if the keys file exists): `${CLAUDE_SKILL_DIR}/scripts/dd-dashboard.sh check` (scoped to `DD_ENV`, or pass an env). Shows Chainguard, non-Chainguard and total container counts and adoption %. Data appears a few minutes after the Agent starts reporting. Without keys, tell them to look at the dashboard instead.
 
 Troubleshooting only: if one specific image they expect to be Chainguard shows up as non-Chainguard, check its labels with `${CLAUDE_SKILL_DIR}/scripts/check-image-labels.sh <image>` (short names expand to `CG_REGISTRY`). Do not inspect local images with `docker image inspect` without `--platform`, because on Docker Desktop an unpulled platform looks like an image with no labels.
@@ -106,15 +107,23 @@ Never ask the user to paste keys into chat, never print or echo key values, and 
 
 ## local-test
 
-Proves the whole chain on the user's laptop with four containers built from public `cgr.dev/chainguard` images: a Chainguard image, one built FROM Chainguard, one that overwrites the vendor label, and a non-Chainguard control. No Chainguard org or Datadog account is needed.
+Proves the whole chain on the user's laptop with four fixed containers built from public images: `cgr.dev/chainguard/nginx` as is, an image built FROM `cgr.dev/chainguard/python`, the same with its vendor label overwritten, and `busybox` as a non-Chainguard control. No Chainguard org is needed. The Kubernetes variants create their own kind clusters on the laptop. They never touch the user's real clusters and never change the user's current kubectl context.
 
-Ask which variant, defaulting to Docker:
-- Docker (about 2 minutes): `${CLAUDE_SKILL_DIR}/test/run-docker-test.sh`
-- Kubernetes with the Datadog Helm chart (about 5 minutes): run the Docker test once first (it builds the test images), then `${CLAUDE_SKILL_DIR}/test/run-kind-test.sh`
-- Kubernetes with the Datadog Operator (about 5 minutes): run the Docker test once first, then `${CLAUDE_SKILL_DIR}/test/run-operator-test.sh`
+Ask two questions together:
+1. **Where:** Docker (default, about 2 minutes), Kubernetes with the Datadog Helm chart, or Kubernetes with the Datadog Operator (about 5 minutes each).
+2. **Mode:**
+   - Local only (default): the Agent gets a dummy key, nothing reaches Datadog, and the result is the table of tags the Agent applied, printed in the terminal. No Datadog account needed, but nothing shows on a dashboard.
+   - Send to Datadog: the test appears on the Chainguard Adoption (Runtime) dashboard. Needs a keys file with `DD_API_KEY` (the application key is not needed for this). If there is no keys file, run `${CLAUDE_SKILL_DIR}/scripts/dd-dashboard.sh init-keys` and have the user fill it in first.
 
-All use a dummy API key and read tags from the Agent directly. To also send data to Datadog, load the keys file in the same command: `set -a; . <DD_KEYS_FILE>; set +a; <test script>`.
+Commands (add `--datadog` for send to Datadog. The script reads the key from the keys file itself and never puts it on a command line):
+- Docker: `${CLAUDE_SKILL_DIR}/test/run-docker-test.sh [--datadog]`
+- Helm on kind: `${CLAUDE_SKILL_DIR}/test/run-kind-test.sh [--datadog]`
+- Operator on kind: `${CLAUDE_SKILL_DIR}/test/run-operator-test.sh [--datadog]`
+Each script builds its own test images first, so the variants can run in any order.
+
 Expected: Chainguard and derived show `vendor:Chainguard` and `cg_image:*`, the override shows `vendor:example-co` but keeps `cg_image`, the control shows neither. The tests use the upstream `gcr.io/datadoghq/agent:7` image because that is the Agent most customers run.
+
+After a send-to-Datadog run: tell them data appears in a few minutes, and to set the dashboard's `env` filter to `cg-label-test` (Docker and Helm) or `cg-operator-test` (Operator). If they do not have the dashboard yet, offer to run `dashboard`. With keys and an application key, offer `dd-dashboard.sh check cg-label-test` after a few minutes to confirm the numbers.
 
 When done, offer cleanup and run it only after a yes: `kind delete cluster --name cg-label-test`, `kind delete cluster --name cg-operator-test`, `docker rm -f dd-agent cg-direct cg-derived cg-derived-override control`. Only remove these local test resources. If the user runs `local-test clean`, go straight to the cleanup offer.
 

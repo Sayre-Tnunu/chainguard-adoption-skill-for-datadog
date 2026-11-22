@@ -16,13 +16,14 @@
 #                    ap1.datadoghq.com, ap2.datadoghq.com, ddog-gov.com
 #   DD_ORG_NAME      Datadog organization name (used to confirm you are pointed at the right account)
 #   AGENT_DEPLOY     helm | operator | docker | ecs | none
+#   KUBE_CONTEXT     kubectl context of the cluster to check. Empty means the current context.
 #   AGENT_NAMESPACE  Kubernetes namespace of the Datadog Agent
 #   AGENT_DAEMONSET  Agent DaemonSet name (Helm: release name, Operator: <DatadogAgent name>-agent)
 #   DD_ENV           Value of the env tag to scope checks to (optional)
 #   DD_KEYS_FILE     Secret API and application keys file. Default ~/.config/datadog/keys.env
 
 CGA_CONFIG="${CGA_CONFIG:-$HOME/.config/chainguard-adoption/config.env}"
-CGA_KEYS=(CG_ORG CG_REGISTRY DD_SITE DD_ORG_NAME AGENT_DEPLOY AGENT_NAMESPACE AGENT_DAEMONSET DD_ENV DD_KEYS_FILE)
+CGA_KEYS=(CG_ORG CG_REGISTRY DD_SITE DD_ORG_NAME AGENT_DEPLOY KUBE_CONTEXT AGENT_NAMESPACE AGENT_DAEMONSET DD_ENV DD_KEYS_FILE)
 
 cga_load() {
   # shellcheck disable=SC1090
@@ -58,5 +59,5 @@ case "${1:-show}" in
     tmp=$(mktemp); grep -v "^$k=" "$CGA_CONFIG" > "$tmp" || true; echo "$k=$v" >> "$tmp"; mv "$tmp" "$CGA_CONFIG"
     echo "$k=$v"
     ;;
-  *) sed -n '2,23p' "$0"; exit 1 ;;
+  *) sed -n '2,24p' "$0"; exit 1 ;;
 esac

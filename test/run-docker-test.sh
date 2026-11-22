@@ -1,26 +1,23 @@
 #!/usr/bin/env bash
-# Local test: does the Datadog Agent turn Chainguard OCI labels into tags at runtime?
+# Local test on Docker: does the Datadog Agent turn Chainguard OCI labels into tags at runtime?
 #
-# Usage:
-#   ./run-docker-test.sh            # local only, dummy API key, nothing useful leaves the laptop
-#   DD_API_KEY=<real key> ./run-docker-test.sh   # also ships metrics to your Datadog org
+#   ./run-docker-test.sh             local only (dummy API key), tags printed in the terminal
+#   ./run-docker-test.sh --datadog   also send to Datadog, so it shows on the dashboard (env:cg-label-test)
 #
 # Tested with gcr.io/datadoghq/agent:7: DD_CONTAINER_LABELS_AS_TAGS is honored,
 # DD_DOCKER_LABELS_AS_TAGS is the legacy name (it overrides the new one if both map the same
 # label), and DD_CONTAINER_IMAGE_LABELS_AS_TAGS is not a real setting and is silently ignored.
 set -euo pipefail
 cd "$(dirname "$0")"
+. ./common.sh
 
-API_KEY="${DD_API_KEY:-00000000000000000000000000000000}"
-SITE="${DD_SITE:-datadoghq.com}"
 AGENT_IMAGE="${AGENT_IMAGE:-gcr.io/datadoghq/agent:7}"
 
 cleanup() { docker rm -f dd-agent cg-direct cg-derived cg-derived-override control >/dev/null 2>&1 || true; }
 cleanup
 
-echo "== Building derived test images"
-docker build -q -t local/cg-derived:test derived >/dev/null
-docker build -q -t local/cg-derived-override:test derived-override >/dev/null
+echo "== Mode: $MODE"
+build_test_images
 
 echo "== Starting workload containers"
 docker run -d --name cg-direct           cgr.dev/chainguard/nginx:latest >/dev/null       # Chainguard image as is
@@ -29,8 +26,9 @@ docker run -d --name cg-derived-override local/cg-derived-override:test >/dev/nu
 docker run -d --name control             busybox:latest sleep 100000 >/dev/null           # negative control, not Chainguard
 
 echo "== Starting Datadog Agent ($AGENT_IMAGE)"
+# DD_API_KEY is passed by name from the environment (set by common.sh), not as a value on the command line.
 docker run -d --name dd-agent \
-  -e DD_API_KEY="$API_KEY" \
+  -e DD_API_KEY \
   -e DD_SITE="$SITE" \
   -e DD_HOSTNAME=cg-label-test \
   -e DD_TAGS="env:cg-label-test" \
@@ -60,7 +58,8 @@ for c in cg-direct cg-derived cg-derived-override control; do
 done
 
 echo
-echo "Expected: cg-direct and cg-derived show vendor:chainguard and cg_image:*,"
-echo "cg-derived-override shows cg_image:python but not vendor:chainguard, control shows nothing."
+echo "Expected: cg-direct and cg-derived show vendor:Chainguard and cg_image:*,"
+echo "cg-derived-override shows cg_image:python but a different vendor, control shows nothing."
+mode_footer cg-label-test
 echo
-echo "Agent left running for inspection. Clean up with: docker rm -f dd-agent cg-direct cg-derived cg-derived-override control"
+echo "Containers left running. Clean up with: docker rm -f dd-agent cg-direct cg-derived cg-derived-override control"

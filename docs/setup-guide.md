@@ -94,7 +94,7 @@ Nothing changes on your application containers. The labels are already on every 
 
 ## Step 2: Confirm the tags are flowing
 
-From the cluster, before any data reaches Datadog, confirm the Agent picked up the setting. With the Operator, use `ds/datadog-agent` in both commands.
+From the cluster, before any data reaches Datadog, confirm the Agent picked up the setting. With the Operator, use `ds/datadog-agent` in both commands. If you have more than one cluster, add `--context <your-context>` to each command so you check the right one.
 
 ```sh
 kubectl exec -n datadog ds/datadog -c agent -- agent config | grep -A3 container_labels_as_tags
@@ -109,6 +109,8 @@ kubectl exec -n datadog ds/datadog -c agent -- agent tagger-list | grep -E 'cg_i
 ```
 
 Chainguard containers show `cg_image:<name>` and `vendor:Chainguard`. Each node runs its own Agent, so pick a pod on a node where a Chainguard container is running if the first one shows nothing.
+
+These commands need permission to exec into pods in the Agent namespace. If your account gets a "forbidden" error, ask a cluster admin to run them, or skip ahead to the Datadog checks below. On EKS Fargate the Agent runs as a sidecar instead of a DaemonSet, so use the Datadog checks there.
 
 A few minutes after the Agent restarts, open Metrics Explorer in Datadog and query `container.cpu.usage` filtered by `vendor:chainguard`. Datadog lowercases tag values, so the label value `Chainguard` shows up as `vendor:chainguard`. Two other quick checks:
 

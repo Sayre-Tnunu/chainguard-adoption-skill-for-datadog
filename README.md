@@ -47,7 +47,7 @@ Five commands, usually run in this order:
 | `/chainguard-adoption agent-config` | The one Agent setting for your deployment (Helm, Operator, Docker or ECS), with apply and rollback commands |
 | `/chainguard-adoption verify` | Confirms the Agent is tagging containers, and shows live Chainguard counts and adoption % in Datadog |
 | `/chainguard-adoption dashboard` | Creates the adoption dashboard, by UI import (no keys) or through the API |
-| `/chainguard-adoption local-test` | Optional. Proves the whole thing on your laptop first (Docker, or Kubernetes with Helm or the Operator) and cleans up afterward |
+| `/chainguard-adoption local-test` | Optional. Proves the whole thing on your laptop first (Docker, or a throwaway kind cluster with Helm or the Operator). Local only, or send to Datadog to see it on the dashboard. Never touches your real clusters or changes your kubectl context |
 
 Type `/chainguard-adoption` on its own to see where you are and what to do next. You can also describe what you want in plain language, for example "show me how many of our running containers are Chainguard in Datadog", and Claude loads the skill on its own.
 
