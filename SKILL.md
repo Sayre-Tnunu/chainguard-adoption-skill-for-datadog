@@ -13,7 +13,8 @@ There are five commands: `setup`, `agent-config`, `verify`, `dashboard`, `local-
 
 Start every run with `${CLAUDE_SKILL_DIR}/scripts/config.sh show`.
 - If there is no config file yet and the command is not `local-test`, run `setup` first, then continue with what they asked for.
-- With no arguments: list the five commands with one line each, summarize the current config in one line, and suggest the next step. The normal order is setup, agent-config, verify, dashboard.
+- With no arguments: list the five commands with one line each, summarize the current config in one line, and suggest the next step. The normal order is setup, agent-config, verify, dashboard. Also mention that `docs/setup-guide.md` walks through the whole setup by hand.
+- If the user wants to do it manually, or wants something to share with a platform team, point them to `${CLAUDE_SKILL_DIR}/docs/setup-guide.md`. It covers the Agent setting for Helm, Operator, Docker and ECS, verification, and both dashboard routes (Datadog UI, and API including key creation and the keys file). Offer to copy it somewhere they choose.
 
 ## How detection works (explain when asked, keep it short)
 

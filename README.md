@@ -4,6 +4,8 @@ Track how many of your running containers use Chainguard images, in Datadog. The
 
 What you get in Datadog: a "Chainguard Adoption (Runtime)" dashboard with Chainguard container counts, adoption %, adoption over time, the Chainguard images in use, and a list of non-Chainguard images still running (your migration backlog). It measures what is actually running, not what sits in a registry.
 
+**Prefer to set it up by hand, or handing this to a platform team?** Follow [docs/setup-guide.md](docs/setup-guide.md). It covers every step without Claude Code: the Agent setting for Helm, the Operator, Docker or ECS, how to confirm it works, and creating the dashboard in the Datadog UI or through the API, including how to create and store the API keys.
+
 ## Requirements
 
 - Claude Code
