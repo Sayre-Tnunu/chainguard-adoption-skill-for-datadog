@@ -1,0 +1,6 @@
+.DS_Store
+*.bak
+# Never commit Datadog keys or local config
+keys.env
+*.env
+.dashboard-id

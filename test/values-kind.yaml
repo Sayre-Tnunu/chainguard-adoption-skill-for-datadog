@@ -1,0 +1,12 @@
+# Datadog Helm values for the local kind test. The env block is the part you copy into your own values.yaml.
+datadog:
+  apiKeyExistingSecret: dd-api
+  clusterName: cg-label-test
+  tags: ["env:cg-label-test"]
+  kubelet:
+    tlsVerify: false        # kind only, kubelet uses a self-signed cert
+  env:
+    - name: DD_CONTAINER_LABELS_AS_TAGS
+      value: '{"org.opencontainers.image.vendor":"vendor","dev.chainguard.image.title":"cg_image"}'
+clusterAgent:
+  enabled: true

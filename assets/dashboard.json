@@ -1,0 +1,233 @@
+{
+  "title": "Chainguard Adoption (Runtime)",
+  "description": "Running containers built on Chainguard images, from OCI labels mapped to tags by DD_CONTAINER_LABELS_AS_TAGS (vendor, cg_image). Counts containers, not images or services.",
+  "layout_type": "ordered",
+  "template_variables": [
+    {
+      "name": "env",
+      "prefix": "env",
+      "available_values": [],
+      "default": "*"
+    },
+    {
+      "name": "kube_namespace",
+      "prefix": "kube_namespace",
+      "available_values": [],
+      "default": "*"
+    }
+  ],
+  "widgets": [
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Chainguard containers (vendor label)",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {
+                "name": "cg",
+                "data_source": "metrics",
+                "query": "sum:container.cpu.usage{vendor:chainguard,$env,$kube_namespace} by {container_id}",
+                "aggregator": "last"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "count_not_null(cg)"
+              }
+            ]
+          }
+        ],
+        "precision": 0
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Chainguard-based containers (incl. relabeled)",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {
+                "name": "cgb",
+                "data_source": "metrics",
+                "query": "sum:container.cpu.usage{cg_image:*,$env,$kube_namespace} by {container_id}",
+                "aggregator": "last"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "count_not_null(cgb)"
+              }
+            ]
+          }
+        ],
+        "precision": 0
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "All containers",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {
+                "name": "total",
+                "data_source": "metrics",
+                "query": "sum:container.cpu.usage{$env,$kube_namespace} by {container_id}",
+                "aggregator": "last"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "count_not_null(total)"
+              }
+            ]
+          }
+        ],
+        "precision": 0
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Chainguard adoption (%)",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {
+                "name": "cgb",
+                "data_source": "metrics",
+                "query": "sum:container.cpu.usage{cg_image:*,$env,$kube_namespace} by {container_id}",
+                "aggregator": "last"
+              },
+              {
+                "name": "total",
+                "data_source": "metrics",
+                "query": "sum:container.cpu.usage{$env,$kube_namespace} by {container_id}",
+                "aggregator": "last"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "100 * count_not_null(cgb) / count_not_null(total)"
+              }
+            ]
+          }
+        ],
+        "precision": 1,
+        "custom_unit": "%"
+      }
+    },
+    {
+      "definition": {
+        "type": "timeseries",
+        "title": "Adoption over time (%)",
+        "requests": [
+          {
+            "response_format": "timeseries",
+            "display_type": "line",
+            "queries": [
+              {
+                "name": "cgb",
+                "data_source": "metrics",
+                "query": "sum:container.cpu.usage{cg_image:*,$env,$kube_namespace} by {container_id}"
+              },
+              {
+                "name": "total",
+                "data_source": "metrics",
+                "query": "sum:container.cpu.usage{$env,$kube_namespace} by {container_id}"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "100 * count_not_null(cgb) / count_not_null(total)",
+                "alias": "adoption %"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "query_table",
+        "title": "Running containers by Chainguard base image",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {
+                "name": "c",
+                "data_source": "metrics",
+                "query": "sum:container.cpu.usage{cg_image:*,$env,$kube_namespace} by {cg_image,vendor,kube_namespace,container_name}",
+                "aggregator": "last"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "c",
+                "alias": "cpu (ns)"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "query_value",
+        "title": "Non-Chainguard containers",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {
+                "name": "ncg",
+                "data_source": "metrics",
+                "query": "sum:container.cpu.usage{!cg_image:*,$env,$kube_namespace} by {container_id}",
+                "aggregator": "last"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "count_not_null(ncg)"
+              }
+            ]
+          }
+        ],
+        "precision": 0
+      }
+    },
+    {
+      "definition": {
+        "type": "query_table",
+        "title": "Non-Chainguard images still running",
+        "requests": [
+          {
+            "response_format": "scalar",
+            "queries": [
+              {
+                "name": "n",
+                "data_source": "metrics",
+                "query": "sum:container.cpu.usage{!cg_image:*,$env,$kube_namespace} by {short_image,image_tag,kube_namespace}",
+                "aggregator": "last"
+              }
+            ],
+            "formulas": [
+              {
+                "formula": "n",
+                "alias": "cpu (ns)"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
