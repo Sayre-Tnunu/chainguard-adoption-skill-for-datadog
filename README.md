@@ -16,7 +16,7 @@ Personal install, available in every project:
 
 ```sh
 mkdir -p ~/.claude/skills
-git clone https://github.com/Sayre-Tnunu/chainguard-adoption-skill.git ~/.claude/skills/chainguard-adoption
+git clone https://github.com/Sayre-Tnunu/chainguard-adoption-skill-for-datadog.git ~/.claude/skills/chainguard-adoption
 ```
 
 Update to the latest version later with:
@@ -30,7 +30,7 @@ Project install, shared with everyone who clones a repo: copy this folder to `.c
 If you are editing the skill yourself, clone it anywhere and symlink it instead, so changes take effect in place:
 
 ```sh
-ln -s /path/to/chainguard-adoption-skill ~/.claude/skills/chainguard-adoption
+ln -s /path/to/chainguard-adoption-skill-for-datadog ~/.claude/skills/chainguard-adoption
 ```
 
 Claude Code picks up new skills without a restart. Type `/` in the prompt and look for `/chainguard-adoption`, or ask Claude "What skills are available?"
