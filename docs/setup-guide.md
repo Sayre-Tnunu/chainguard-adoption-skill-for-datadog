@@ -25,13 +25,59 @@ You need:
 - `kubectl` access to the namespace the Agent runs in, for the checks in Step 2.
 - A Datadog user who can create dashboards. That is all Option A in Step 3 needs. Option B, the API route, also needs an API key and an application key with the `dashboards_write` permission.
 
-Optional but recommended: confirm your images carry the labels. With `crane` installed and logged in to your registry:
+You do not need to check your images first. Chainguard images carry these labels, including Custom Assembly images and images pulled through a registry mirror. If one image later does not show up as Chainguard, see "Troubleshooting a single image" under Notes and caveats.
 
-```sh
-crane config cgr.dev/<your-org>/python:latest | jq '.config.Labels'
+## Optional: try it on your laptop first
+
+Before changing anything in a real environment, you can watch the whole thing work on your own machine in a few minutes. The test runs four containers:
+
+- `cgr.dev/chainguard/nginx`, a Chainguard image used as is
+- an image built FROM `cgr.dev/chainguard/python`, like an in-house base image
+- the same image with its vendor label overwritten, like a team that sets its own labels
+- `busybox`, a non-Chainguard image, as the control
+
+It uses only public images, so you need no Chainguard account. The Kubernetes variants create their own throwaway kind clusters. The test never touches your real clusters and never changes your current kubectl context.
+
+You need Docker. The Kubernetes variants also need `kind`, `kubectl` and `helm`. The scripts are in the `test/` folder of this repository (https://github.com/Sayre-Tnunu/chainguard-adoption-skill-for-datadog). Run them from the repository root. Pick one variant:
+
+- Docker, about 2 minutes:
+
+  ```sh
+  ./test/run-docker-test.sh
+  ```
+
+- Kubernetes with the Datadog Helm chart, about 5 minutes:
+
+  ```sh
+  ./test/run-kind-test.sh
+  ```
+
+- Kubernetes with the Datadog Operator, about 5 minutes:
+
+  ```sh
+  ./test/run-operator-test.sh
+  ```
+
+By default the test is local only. The Agent gets a dummy API key, nothing reaches Datadog, and the result is printed in your terminal:
+
+```
+cg-direct              cg_image:nginx vendor:Chainguard
+cg-derived             cg_image:python vendor:Chainguard
+cg-derived-override    cg_image:python vendor:example-co
+control                <no vendor/cg_image tags>
 ```
 
-Look for `org.opencontainers.image.vendor` and `dev.chainguard.image.title`. On a Mac with Docker Desktop, do not check with `docker image inspect` unless you pass `--platform`, because a platform that was never pulled shows an empty config.
+The first two are counted as Chainguard through both tags. The third still has `cg_image` even though its vendor label was overwritten, which is why the dashboard counts on `cg_image`. The control has neither, so it counts as non-Chainguard.
+
+To see the test on the dashboard, add `--datadog` to the command. The script reads `DD_API_KEY` and `DD_SITE` from `~/.config/datadog/keys.env` (the same keys file as Option B in Step 3, and only the API key is needed) and passes the key to the Agent without putting it on a command line. Create the dashboard as described in Step 3, then set its `env` filter to `cg-label-test` for the Docker and Helm tests, or `cg-operator-test` for the Operator test. Data appears a few minutes after the test starts.
+
+Clean up when you are done:
+
+```sh
+docker rm -f dd-agent cg-direct cg-derived cg-derived-override control
+kind delete cluster --name cg-label-test
+kind delete cluster --name cg-operator-test
+```
 
 ## Step 1: Tell the Agent to turn the labels into tags
 
@@ -219,3 +265,13 @@ curl -s -X PUT "https://api.${DD_SITE}/api/v1/dashboard/<id>" \
 - Custom Assembly images keep all the Chainguard labels, so they are counted as Chainguard. Nothing in the image marks them as customized. If you want to track them separately, have the overlay set an environment variable, for example `CG_OVERLAY_CERTS=corp`, and add `DD_CONTAINER_ENV_AS_TAGS='{"CG_OVERLAY_CERTS":"cg_overlay"}'` to the Agent.
 - This only counts what the Agent sees. Environments without the Agent, or with container collection disabled, appear in neither the numerator nor the denominator.
 - Snapshot the dashboard values before the first migrations land and again at each milestone. That before and after pair is the simplest adoption metric to put in front of leadership, and it pairs well with the CVE reduction numbers in the Chainguard Console.
+
+### Troubleshooting a single image
+
+If an image you expect to be Chainguard shows up as non-Chainguard, check its labels straight from the registry. With `crane` installed and logged in to your registry:
+
+```sh
+crane config --platform linux/amd64 cgr.dev/<your-org>/python:latest | jq '.config.Labels'
+```
+
+Look for `dev.chainguard.image.title`. If it is there, the image is counted, so check that the Agent setting reached the node it runs on (Step 2). On a Mac with Docker Desktop, do not check with `docker image inspect` unless you pass `--platform`, because a platform that was never pulled shows an empty config with no labels.
