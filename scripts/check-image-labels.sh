@@ -1,36 +1,24 @@
 #!/usr/bin/env bash
-# Report the Chainguard OCI labels on images, read straight from the registry.
+# Troubleshooting helper: report the Chainguard OCI labels on specific images, read from the registry.
+# Use it when one image does not show up as Chainguard in Datadog.
 #
-# Usage:
-#   check-image-labels.sh [--platform linux/amd64] <image> [<image> ...]
-#   check-image-labels.sh [--platform linux/amd64] --all [tag]
+# Usage: check-image-labels.sh [--platform linux/amd64] <image> [<image> ...]
 #
 # A short name such as python:latest is expanded to $CG_REGISTRY/python:latest from the skill config.
-# --all lists every repo in $CG_ORG with chainctl and checks the given tag (default latest).
-# Needs crane and jq, registry credentials (for cgr.dev: chainctl auth configure-docker),
-# and chainctl for --all.
+# Needs crane, jq and registry credentials (for cgr.dev: chainctl auth configure-docker).
 set -uo pipefail
 . "$(dirname "$0")/config.sh"
 
 PLATFORM=linux/amd64
 if [ "${1:-}" = "--platform" ]; then PLATFORM=$2; shift 2; fi
+[ $# -gt 0 ] || { sed -n '2,8p' "$0"; exit 1; }
 command -v crane >/dev/null || { echo "crane not found (https://github.com/google/go-containerregistry)"; exit 1; }
 command -v jq >/dev/null || { echo "jq not found"; exit 1; }
 
 images=()
-if [ "${1:-}" = "--all" ]; then
-  tag="${2:-latest}"
-  [ -n "${CG_ORG:-}" ] || { echo "CG_ORG is not set. Run: $(dirname "$0")/config.sh set CG_ORG <your-org>"; exit 1; }
-  command -v chainctl >/dev/null || { echo "chainctl not found"; exit 1; }
-  while read -r r; do [ -n "$r" ] && images+=("$CG_REGISTRY/$r:$tag"); done \
-    < <(chainctl images repos list --parent "$CG_ORG" -o json 2>/dev/null | jq -r '.items[]?.name' | sort)
-  [ ${#images[@]} -gt 0 ] || { echo "No repos found in $CG_ORG (check chainctl auth status and the org name)."; exit 1; }
-else
-  [ $# -gt 0 ] || { sed -n '2,12p' "$0"; exit 1; }
-  for i in "$@"; do
-    if [[ "$i" != */* && -n "${CG_REGISTRY:-}" ]]; then images+=("$CG_REGISTRY/$i"); else images+=("$i"); fi
-  done
-fi
+for i in "$@"; do
+  if [[ "$i" != */* && -n "${CG_REGISTRY:-}" ]]; then images+=("$CG_REGISTRY/$i"); else images+=("$i"); fi
+done
 
 printf '%-60s %-11s %-18s %-22s %s\n' IMAGE VENDOR CG_IMAGE PACKAGE.MAIN RESULT
 rc=0
